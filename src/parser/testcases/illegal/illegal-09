@@ -1,0 +1,3 @@
+void main() {
+I   nt b;	// should be int
+}

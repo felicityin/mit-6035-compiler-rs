@@ -1,0 +1,12 @@
+void bar(int a) {
+    for (i = 0; i < a; i++) {
+        callout("printf", "%d\n", i);
+        if (a == 4) {
+            break;
+        }
+    }
+}
+
+void main() {
+    bar(10);
+}

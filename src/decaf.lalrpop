@@ -1,0 +1,232 @@
+use std::str::FromStr;
+use crate::ast::*;
+
+grammar;
+
+match {
+    r"//[^\n\r]*[\n\r]*" => { }, // Ignore C++ style comments
+} else {
+    r"\s*" => { }, // Ignore whitespaces
+    _
+}
+
+// macro for comma-separated tokens (without trailing comma)
+// should have at least one
+CommaAtLeast<T>: Vec<T> = {
+    <e: T> <r: ("," <T>)*> => {
+        let mut v = vec![e];
+        v.extend(r);
+        v
+    }
+};
+
+// macro for comma-separated tokens (without trailing comma)
+Comma<T>: Vec<T> = {
+    <e: T?> => match e {
+        None => Vec::new(),
+        Some(e) => vec![e],
+    },
+    <e: T> <r: ("," <T>)+> => {
+        let mut v = vec![e];
+        v.extend(r);
+        v
+    }
+};
+
+pub TProgram: Program = {
+    <i: TImportDecl*> <f: TFieldDecl*> <m: TMethodDecl*> => Program {
+        import_decls: i, field_decls: f, method_decls: m
+    },
+};
+
+TImportDecl: ImportDecl = {
+    "import" <i: TId> ";" => ImportDecl { id: i },
+};
+
+TFieldDecl: FieldDecl = {
+    <t: TType> <f: CommaAtLeast<TFieldDeclId>> ";" => FieldDecl { type_: t, field_ids: f },
+};
+
+TFieldDeclId: FieldDeclId = {
+    <i: TId> => FieldDeclId { id: i, arr_len: None },
+    <i: TId> "[" <l: TIntLiteral> "]" => FieldDeclId { id: i, arr_len: Some(l) },
+};
+
+TMethodDecl: MethodDecl = {
+    <t: TType> <i: TId> "(" <a: Comma<TMethodArg>> ")" <b: TBlock>  => MethodDecl {
+        return_type: ReturnType::Type(t), id: i, args: a, block: b
+    },
+    "void" <i: TId> "(" <a: Comma<TMethodArg>> ")" <b: TBlock>  => MethodDecl {
+      return_type: ReturnType::Void, id: i, args: a, block: b
+    },
+};
+
+TMethodArg: MethodArg = {
+   <t: TType> <i: TId> => MethodArg { type_: t, id: i },
+};
+
+TBlock: Block = {
+    "{" <f: TFieldDecl*> <s: TStatement*> "}" => Block { field_decls: f, statements: s }
+};
+
+TType: Type = {
+    "int" => Type::Int,
+    "bool" => Type::Bool,
+};
+
+TStatement: Statement = {
+    <l: TLocation> <a: TAssignExpr> ";" => Statement::Assign(Assign { location: l, assign_expr: a }),
+    <m: TMethodCall> ";" => Statement::MethodCall(m),
+    "if" "(" <cond: TExpr> ")" <b: TBlock> => Statement::IfElse(IfElse { expr: cond, if_block: b, else_block: None }),
+    "if" "(" <cond: TExpr> ")" <b: TBlock> "else" <e: TBlock> => Statement::IfElse(IfElse { expr: cond, if_block: b, else_block: Some(e) }),
+    "for" "(" <i: TId> "=" <init: TExpr> ";" <incr: TExpr> ";" <update: TForUpdate> ")" <b: TBlock> => Statement::Loop(Loop { id: i, init_expr: init, incre_expr: incr, update: update, block: b }),
+    "while" "(" <e: TExpr> ")" <b: TBlock> => Statement::While(While { expr: e, block: b}),
+    "return" ";" => Statement::Return( Return{ expr: None }),
+    "return" <e: TExpr> ";" => Statement::Return( Return{ expr: Some(e) }),
+    "break" ";" => Statement::Break,
+    "continue" ";" => Statement::Continue,
+};
+
+TForUpdate: ForUpdate = {
+    <l: TLocation> <u: TForUpdateExpr> => ForUpdate { location: l, update_expr: u },
+};
+
+TForUpdateExpr: ForUpdateExpr = {
+    <c: TCompoundAssignOp> <e: TExpr> => ForUpdateExpr::AssignExpr(ForUpdateAssignExpr { compound_assign_op: c, expr: e }),
+    <i: TIncrement> => ForUpdateExpr::Increment(i),
+};
+
+TAssignExpr: AssignExpr = {
+    <a: TAssignOp> <e: TExpr> => AssignExpr::AssignOpExpr(AssignOpExpr {assign_op: a, expr: e}),
+    <i: TIncrement> => AssignExpr::Increment(i),
+};
+
+TAssignOp: AssignOp = {
+    "=" => AssignOp::Assign,
+    <c: TCompoundAssignOp> => AssignOp::CompoundAssignOp(c),
+};
+
+TCompoundAssignOp: CompoundAssignOp = {
+    "+=" => CompoundAssignOp::AddAssign,
+    "-=" => CompoundAssignOp::SubAssign,
+};
+
+TIncrement: Increment = {
+    "++" => Increment::SelfAdd,
+    "--" => Increment::SelfSub,
+};
+
+TMethodCall: MethodCall = {
+    <n: TMethodName> "(" <e: Comma<TExpr>> ")" => MethodCall::Method(MethodCall0 { name: n, args: e }),
+    "callout" "(" <name: TStringLiteral> ")" => MethodCall::CallOut(MethodCall1 {
+        name: MethodName {id: name},
+        args: Vec::new(),
+    }),
+    "callout" "(" <name: TStringLiteral> "," <args: Comma<TImportArg>> ")" => MethodCall::CallOut(MethodCall1 {
+        name: MethodName {id: name},
+        args: args,
+    }),
+};
+
+TMethodName: MethodName = {
+    <i: TId> => MethodName { id: i },
+};
+
+TLocation: Location = {
+    <i: TId> => Location::Id(i),
+    <i: TId> "[" <e: TExpr> "]" => Location::IdExpr(IdExpr { id: i, expr: e }),
+};
+
+TExpr: Expr = {
+    TExpr0,
+};
+
+TExpr0: Expr = {
+    <lhs: TExpr0> "||" <rhs:TExpr1> => Box::new(Expr_::Binary(Binary{lhs: lhs, rhs: rhs, op: BinaryOp::CondOp(CondOp::Or)})),
+    TExpr1,
+};
+
+TExpr1: Expr = {
+    <lhs: TExpr1> "&&" <rhs:TExpr2> => Box::new(Expr_::Binary(Binary{lhs: lhs, rhs: rhs, op: BinaryOp::CondOp(CondOp::And)})),
+    TExpr2,
+};
+
+TExpr2: Expr = {
+    <lhs: TExpr2> <op: TEqOp> <rhs:TExpr3> => Box::new(Expr_::Binary(Binary{lhs: lhs, rhs: rhs, op: BinaryOp::EqOp(op)})),
+    TExpr3,
+};
+
+TExpr3: Expr = {
+    <lhs: TExpr3> <op: TRelOp> <rhs:TExpr4> => Box::new(Expr_::Binary(Binary{lhs: lhs, rhs: rhs, op: BinaryOp::RelOp(op)})),
+    TExpr4,
+};
+
+TExpr4: Expr = {
+    <lhs: TExpr4> "+" <rhs:TExpr5> => Box::new(Expr_::Binary(Binary{lhs: lhs, rhs: rhs, op: BinaryOp::ArithOp(ArithOp::Add)})),
+    <lhs: TExpr4> "-" <rhs:TExpr5> => Box::new(Expr_::Binary(Binary{lhs: lhs, rhs: rhs, op: BinaryOp::ArithOp(ArithOp::Sub)})),
+    TExpr5,
+};
+
+TExpr5: Expr = {
+    <le: TExpr5> "*" <re: TExpr6> => Box::new(Expr_::Binary(Binary{lhs: le, rhs: re, op: BinaryOp::ArithOp(ArithOp::Mul)})),
+    <le: TExpr5> "/" <re: TExpr6> => Box::new(Expr_::Binary(Binary{lhs: le, rhs: re, op: BinaryOp::ArithOp(ArithOp::Div)})),
+    <le: TExpr5> "%" <re: TExpr6> => Box::new(Expr_::Binary(Binary{lhs: le, rhs: re, op: BinaryOp::ArithOp(ArithOp::Mod)})),
+    TExpr6,
+};
+
+TExpr6: Expr = {
+    "!" <e: TExpr6> => Box::new(Expr_::Unary(Unary {expr: e, op: UnaryOp::NegBool})),
+    TExpr7,
+};
+
+TExpr7: Expr = {
+    <l: TLocation> => Box::new(Expr_::Location(l)),
+    <m: TMethodCall> => Box::new(Expr_::MethodCall(m)),
+    <l: TLiteral> => Box::new(Expr_::Literal(l)),
+    "len" "(" <i: TId> ")" => Box::new(Expr_::LenId(i)),
+    "(" <e: TExpr> ")" => e,
+    "-" <e: TExpr7> => Box::new(Expr_::Unary(Unary {expr: e, op: UnaryOp::NegInt})),
+};
+
+TImportArg: ImportArg = {
+    <e: TExpr> => ImportArg::Expr(e),
+    <s: TStringLiteral> => ImportArg::StringLiteral(s),
+};
+
+TEqOp: EqOp = {
+    "==" => EqOp::EQ,
+    "!=" => EqOp::NE,
+};
+
+TRelOp: RelOp = {
+    ">" => RelOp::Greater,
+    "<=" => RelOp::GreaterEq,
+    ">=" => RelOp::LessEq,
+    "<" => RelOp::Less,
+};
+
+TLiteral: Literal = {
+    <i: TIntLiteral> => Literal::IntLiteral(i),
+    <c: TCharLiteral> => Literal::CharLiteral(c),
+    <b: TBoolLiteral> => Literal::BoolLiteral(b),
+};
+
+TId: Id = <s: r"[a-zA-Z_][a-zA-Z0-9_]*"> => s.to_string();
+
+TIntLiteral: IntLiteral = {
+    <d: TDecimalLiteral> => d,
+    <h: THexLiteral> => h,
+};
+
+TDecimalLiteral: DecimalLiteral = <s: r#"[0-9]+"#> => i32::from_str(&s).unwrap();
+
+THexLiteral: HexLiteral = <s: r"0x[0-9a-zA-Z]+"> => i32::from_str(&s).unwrap();
+
+TBoolLiteral: BoolLiteral = {
+    "true" => BoolLiteral::True,
+    "false" => BoolLiteral::False,
+};
+
+TCharLiteral: CharLiteral = <s: r"'.'"> => s.as_bytes()[1 as usize] as char;
+
+TStringLiteral: StringLiteral = <s: r#"".*""#> => String::from_str(&s[1..(s.len()-1)]).unwrap();

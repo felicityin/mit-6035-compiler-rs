@@ -1,0 +1,9 @@
+void bar(int a) {
+    for (i = 0; i < a; i++) {
+        a = a - 1;
+    }
+}
+
+void main() {
+    bar(10);
+}
