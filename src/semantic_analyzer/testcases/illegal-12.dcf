@@ -1,0 +1,5 @@
+void main() {
+    int x;
+    for (x = false; x < 10; x++) {   // initial condition must be an int
+    }
+}

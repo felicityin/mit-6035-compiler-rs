@@ -75,10 +75,10 @@ TType: Type = {
 };
 
 TStatement: Statement = {
-    <l: TLocation> <a: TAssignExpr> ";" => Statement::Assign(Assign { location: l, assign_expr: a }),
+    <l: TLocation> <a: TAssignExpr> ";" => Statement::Assign(Assign { dst: l, assign_expr: a }),
     <m: TMethodCall> ";" => Statement::MethodCall(m),
-    "if" "(" <cond: TExpr> ")" <b: TBlock> => Statement::IfElse(IfElse { expr: cond, if_block: b, else_block: None }),
-    "if" "(" <cond: TExpr> ")" <b: TBlock> "else" <e: TBlock> => Statement::IfElse(IfElse { expr: cond, if_block: b, else_block: Some(e) }),
+    "if" "(" <cond: TExpr> ")" <b: TBlock> => Statement::IfElse(IfElse { cond: cond, if_block: b, else_block: None }),
+    "if" "(" <cond: TExpr> ")" <b: TBlock> "else" <e: TBlock> => Statement::IfElse(IfElse { cond: cond, if_block: b, else_block: Some(e) }),
     "for" "(" <i: TId> "=" <init: TExpr> ";" <incr: TExpr> ";" <update: TForUpdate> ")" <b: TBlock> => Statement::Loop(Loop { id: i, init_expr: init, incre_expr: incr, update: update, block: b }),
     "while" "(" <e: TExpr> ")" <b: TBlock> => Statement::While(While { expr: e, block: b}),
     "return" ";" => Statement::Return( Return{ expr: None }),
@@ -118,11 +118,11 @@ TIncrement: Increment = {
 
 TMethodCall: MethodCall = {
     <n: TMethodName> "(" <e: Comma<TExpr>> ")" => MethodCall::Method(MethodCall0 { name: n, args: e }),
-    "callout" "(" <name: TStringLiteral> ")" => MethodCall::CallOut(MethodCall1 {
+    "callout" "(" <name: TStringLiteral> ")" => MethodCall::Callout(MethodCall1 {
         name: MethodName {id: name},
         args: Vec::new(),
     }),
-    "callout" "(" <name: TStringLiteral> "," <args: Comma<TImportArg>> ")" => MethodCall::CallOut(MethodCall1 {
+    "callout" "(" <name: TStringLiteral> "," <args: Comma<TImportArg>> ")" => MethodCall::Callout(MethodCall1 {
         name: MethodName {id: name},
         args: args,
     }),
@@ -134,7 +134,7 @@ TMethodName: MethodName = {
 
 TLocation: Location = {
     <i: TId> => Location::Id(i),
-    <i: TId> "[" <e: TExpr> "]" => Location::IdExpr(IdExpr { id: i, expr: e }),
+    <i: TId> "[" <e: TExpr> "]" => Location::IdExpr(IdExpr { id: i, array_len: e }),
 };
 
 TExpr: Expr = {

@@ -30,7 +30,7 @@ pub struct MethodDecl {
     pub block: Block,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReturnType {
     Type(Type),
     Void,
@@ -48,7 +48,7 @@ pub struct Block {
     pub statements: Vec<Statement>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     Int,
     Bool,
@@ -68,13 +68,13 @@ pub enum Statement {
 
 #[derive(Debug)]
 pub struct Assign {
-    pub location: Location,
+    pub dst: Location,
     pub assign_expr: AssignExpr,
 }
 
 #[derive(Debug)]
 pub struct IfElse {
-    pub expr: Expr,
+    pub cond: Expr,
     pub if_block: Block,
     pub else_block: Option<Block>,
 }
@@ -147,44 +147,44 @@ pub enum Increment {
     SelfSub,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum MethodCall {
     Method(MethodCall0),
-    CallOut(MethodCall1),
+    Callout(MethodCall1),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MethodCall0 {
     pub name: MethodName,
     pub args: Vec<Expr>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MethodCall1 {
     pub name: MethodName,
     pub args: Vec<ImportArg>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MethodName {
     pub id: Id,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Location {
     Id(Id),
     IdExpr(IdExpr),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IdExpr {
     pub id: Id,
-    pub expr: Expr,
+    pub array_len: Expr,
 }
 
 pub type Expr = Box<Expr_>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expr_ {
     Location(Location),
     MethodCall(MethodCall),
@@ -194,26 +194,26 @@ pub enum Expr_ {
     Binary(Binary),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Unary {
     pub expr: Expr,
     pub op: UnaryOp,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum UnaryOp {
     NegInt,
     NegBool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Binary {
     pub lhs: Expr,
     pub rhs: Expr,
     pub op: BinaryOp,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ImportArg {
     Expr(Expr),
     StringLiteral(StringLiteral),

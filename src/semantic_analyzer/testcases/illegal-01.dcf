@@ -1,0 +1,4 @@
+void main() {
+    int a;
+    bool a;	// identifier declared twice
+}
