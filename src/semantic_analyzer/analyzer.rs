@@ -620,6 +620,9 @@ impl SemanticAnalyzer {
             Ok(i) => i,
             Err(e) => return Err(e),
         };
+        if incre_expr.borrow().type_ != ir::Type::Bool {
+            return Err(vec![SemanticCheckError::OperandsTypeMismatch]);
+        }
 
         let update = match self.get_ir_for_update(lop.update) {
             Ok(u) => u,
@@ -662,7 +665,12 @@ impl SemanticAnalyzer {
             ast::ForUpdateExpr::AssignExpr(a) => {
                 let compound_assign_op = ir::CompoundAssignOp::from(&a.compound_assign_op);
                 let expr = match self.get_ir_expr(a.expr) {
-                    Ok(expr) => expr,
+                    Ok(expr) => {
+                        if expr.borrow().type_ != ir::Type::Int {
+                            return Err(vec![SemanticCheckError::OperandsTypeMismatch]);
+                        }
+                        expr
+                    }
                     Err(e) => return Err(e),
                 };
                 ir::ForUpdateExpr::AssignExpr(ir::ForUpdateAssignExpr { compound_assign_op, expr })
